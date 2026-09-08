@@ -1,3 +1,11 @@
-kortex_api>=2.6.0
-grpcio>=1.60.0
+# kortex_api is NOT on PyPI. Kinova distributes it only as a wheel, from the
+# Kinova download portal or the ros2_kortex release assets. Install it by path:
+#
+#   pip install /path/to/kortex_api-2.6.0.post3-py3-none-any.whl
+#
+# The wheel hard-pins protobuf==3.5.1, which is broken on Python 3.10+
+# (collections.MutableMapping was removed). Install the wheel first, then let the
+# pin below override it. pip will warn about a dependency conflict; that is expected.
+protobuf==3.20.3
+
 pytest>=8.0.0

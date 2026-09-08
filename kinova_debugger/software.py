@@ -27,17 +27,7 @@ def run_software_checks() -> list[CheckResult]:
             "kortex-api",
             Status.PASS if kortex_available else Status.FAIL,
             "kortex_api is installed." if kortex_available else "kortex_api is not installed.",
-            "Run: python -m pip install -r requirements.txt" if not kortex_available else "",
-        )
-    )
-
-    grpc_available = importlib.util.find_spec("grpc") is not None
-    checks.append(
-        CheckResult(
-            "grpcio",
-            Status.PASS if grpc_available else Status.WARN,
-            "grpcio is available." if grpc_available else "grpcio is not available; hardware checks may fail.",
-            "Run: python -m pip install -r requirements.txt" if not grpc_available else "",
+            "Install the Kortex wheel by path; see the Setup section of README.md." if not kortex_available else "",
         )
     )
 
