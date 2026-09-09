@@ -12,6 +12,8 @@ def _client_call(client: Any, method_name: str) -> Any:
 
 def run_hardware_checks(host: str, port: int = 10000, timeout: float = 5.0) -> list[CheckResult]:
     try:
+        from kortex_api.RouterClient import RouterClient
+        from kortex_api.SessionManager import SessionManager
         from kortex_api.TCPTransport import TCPTransport
         from kortex_api.autogen.client_stubs.BaseClientRpc import BaseClient
         from kortex_api.autogen.client_stubs.DeviceManagerClientRpc import DeviceManagerClient
@@ -27,17 +29,17 @@ def run_hardware_checks(host: str, port: int = 10000, timeout: float = 5.0) -> l
         ]
 
     transport = TCPTransport()
-    router = None
+    session_manager = None
     try:
         transport.connect(host, port)
-        router = transport.create_router()
-        session_manager = router.create_client_session_manager()
+        router = RouterClient(transport, RouterClient.basicErrorCallback)
+        session_manager = SessionManager(router)
         session_info = Session_pb2.CreateSessionInfo()
         session_info.username = "admin"
         session_info.password = "admin"
         session_info.session_inactivity_timeout = 60000
         session_info.connection_inactivity_timeout = 2000
-        session_manager.create_session(session_info)
+        session_manager.CreateSession(session_info)
 
         base_client = BaseClient(router)
         device_manager = DeviceManagerClient(router)
@@ -71,9 +73,9 @@ def run_hardware_checks(host: str, port: int = 10000, timeout: float = 5.0) -> l
             )
         ]
     finally:
-        if router is not None:
+        if session_manager is not None:
             try:
-                router.destroy()
+                session_manager.CloseSession()
             except Exception:
                 pass
         try:
