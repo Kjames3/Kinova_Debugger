@@ -31,6 +31,16 @@ def run_software_checks() -> list[CheckResult]:
         )
     )
 
+    numpy_available = importlib.util.find_spec("numpy") is not None
+    checks.append(
+        CheckResult(
+            "numpy",
+            Status.PASS if numpy_available else Status.FAIL,
+            "numpy is installed." if numpy_available else "numpy is not installed (needed for calibration analysis).",
+            "Install the dependencies with: python -m pip install -r requirements.txt" if not numpy_available else "",
+        )
+    )
+
     workspace = Path.cwd()
     checks.append(
         CheckResult(

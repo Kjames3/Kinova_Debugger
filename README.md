@@ -67,21 +67,70 @@ millimetres inside the zone the target sits.
 
 The wrist interconnect module has an IMU. Stationary, it reads gravity — a
 direct physical measurement of the wrist's orientation that does not depend on
-the joint encoders. Two correctly-calibrated arms at the same joint angles must
-read the same gravity vector.
+the joint encoders. If a joint's zero is wrong, the controller believes the arm
+is somewhere it physically is not, so forward kinematics, protection zones and
+collision checks are all computed against a pose the arm is not in.
 
-Capture a reference from a known-good arm, then compare:
+None of these commands move the arm.
+
+### Quick check: one pose against a known-good arm
+
+```bash
+# on the good arm, at Home
+python diagnose_calibration.py compare --host 192.168.1.10 --save-reference good.json
+# on the suspect arm, at the same stored action
+python diagnose_calibration.py compare --host 192.168.1.10 --reference good.json
+```
+
+This says *whether* the wrist is misoriented, but not *which* joint: at Home,
+joints 2, 4 and 6 pitch about parallel axes, so one pose cannot tell them apart.
+
+### Per-joint offsets: capture several poses, then analyse
+
+```bash
+python diagnose_calibration.py capture --host 192.168.1.10 --out suspect_poses.json
+python diagnose_calibration.py analyze suspect_poses.json
+```
+
+`capture` is interactive. It suggests about ten poses; you jog the arm there
+with the controller in Joint mode, and it records each one once the arm has been
+still for half a second. Exact angles do not matter. What matters is rotating
+joints 3, 5 and 7 by 60–90° away from Home, because that is what separates
+joints 2, 4 and 6. The file is saved after every pose, re-running `capture` on
+the same file appends to it, and it refuses to mix poses from a different arm
+(identified by base serial, since both lab arms share `192.168.1.10`).
+
+`analyze` fits a constant zero offset to each joint so that the nominal Gen3
+kinematics reproduce every IMU reading, and reports each offset with a 1-sigma
+uncertainty:
+
+- `FAIL`: the joint is at least 3° (and 3 sigma) from the angle it reports.
+- `WARN` "could not be pinned down": the poses did not vary the right joints.
+  Capture more.
+- `offset-model-fit` `WARN`: constant offsets do not explain the data, so
+  suspect slipping, a faulty IMU, or poses captured while moving.
+
+Joint 1 is never estimated (it turns about the vertical, which does not change
+gravity). Joint 7 needs a baseline, below. Differences between the nominal URDF
+model and Kinova's per-unit calibrated model limit resolution to about 1–2°, far
+below the size of a real zero fault.
+
+### Ground-truth baseline from a known-good arm
+
+Capture the same kind of pose set on a correctly working arm, then analyse the
+suspect arm against it:
 
 ```bash
 # on the good arm
-python diagnose_calibration.py --host 192.168.1.10 --save-reference good.json
-# on the suspect arm, driven to the same stored action
-python diagnose_calibration.py --host 192.168.1.10 --reference good.json
+python diagnose_calibration.py capture --host 192.168.1.10 --out good_poses.json
+# anywhere, no arm needed
+python diagnose_calibration.py analyze suspect_poses.json --baseline good_poses.json
 ```
 
-A large difference means the joint zeros are wrong: the controller believes the
-arm is somewhere it physically is not, so forward kinematics, protection zones
-and collision checks are all computed against a pose the arm is not in.
+The baseline fixes how the IMU is mounted in the wrist (identical hardware on
+both arms). That tightens every estimate and makes joint 7 measurable. The
+report also checks that the baseline arm itself fits a zero-offset model, so a
+bad reference arm gets flagged rather than silently trusted.
 
 ## Watching a fault happen
 
